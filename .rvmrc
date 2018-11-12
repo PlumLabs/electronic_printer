@@ -1,1 +1,1 @@
-rvm use ruby-2.3.3@EP --create
+rvm use ruby-2.5.1@EP --create

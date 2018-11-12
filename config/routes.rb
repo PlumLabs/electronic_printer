@@ -1,8 +1,12 @@
 Rails.application.routes.draw do
   # Api definition
-  namespace :api, defaults: { format: :json } do
-    scope module: :v1 do
-      resources :documents
+  namespace :api do
+    namespace :v1 do
+      namespace :billings do
+        get :bill, :collection
+        get :state, :member
+        get :send_data, :member
+      end
     end
   end
 end

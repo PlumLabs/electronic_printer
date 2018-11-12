@@ -7,17 +7,21 @@ module Afip
     attr_reader :errors
 
     PRICE_LIMIT = 1000.0
+    PRESITION = 2
 
-    def initialize(invoice)
+    def initialize(invoice, params)
       @invoice = invoice
+      @company = params[:company]
+      @point_sale = params[:point_sale]
+      @items = params[:items]
       @invoice.document_type = Legal::document_type(@invoice.company_type_iva, @invoice.legal_person_type_iva)
       @errors   = {}
-      @eafip = Eafip::Company.new({ cuit: @invoice.company.unformat_cuit,
-                                   pto_venta: @invoice.branch.default_point_sale.pos_number.to_s.rjust(4, '0'),
+      @eafip = Eafip::Company.new({ cuit: @company[:unformat_cuit],
+                                   pto_venta: @point_sale[:pos_number].to_s.rjust(4, '0'),
                                    documento: document_type,
-                                   pkey: Rails.env.production? ? @invoice.company.pkey.url : @invoice.company.pkey.path,
-                                   cert: Rails.env.production? ? @invoice.company.cert.url : @invoice.company.cert.path,
-                                   concepto: @invoice.branch.default_point_sale.concept,
+                                   pkey: params[:pkey].tempfile,
+                                   cert: params[:cert].tempfile,
+                                   concepto: @point_sale[:concept],
                                    moneda: :peso,
                                    iva_cond: company_iva_condition,
                                    environment:  Afip::ElectronicEnv.eafip_env
@@ -101,9 +105,9 @@ module Afip
     end
 
     def invoice_type
-      if @invoice.instance_of? Invoice
+      if @invoice.type == "Invoice"
         :invoice
-      elsif @invoice.instance_of? DebitNote
+      elsif @invoice.type == "DebitNote"
         :debit
       else
         :credit
@@ -112,6 +116,7 @@ module Afip
 
     def document_type
       doc_number = @invoice.legal_person_document_number.gsub('-','')
+      puts ap @invoice
       if !@invoice.a? && @invoice.price_final < PRICE_LIMIT
         'Doc. (Otro)'
       else
@@ -136,7 +141,7 @@ module Afip
     end
 
     def map_ivas_amount
-      @_map_ivas_amount ||= Afip::Ivas.ivas_document(@invoice)
+      @_map_ivas_amount ||= Afip::Ivas.ivas_document(@invoice, @items)
     end
 
     def net_amount
@@ -150,14 +155,10 @@ module Afip
     end
 
     def point_sale_concept
-      I18n.t("point_sale.concept.#{@invoice.branch.default_point_sale.concept}")
+      I18n.t("electronic.point_sale.concept.#{@point_sale.concept}")
     end
 
     def validate_data?
-      # if @invoice.company.ex?
-      #   errors[:exento] = I18n.t('electronic.errors.exent_not_support')
-      #   return false
-      # end
       if !@invoice.customer_ri? && @invoice.legal_person_document_number.blank? && @invoice.price_final >= PRICE_LIMIT
         errors[:customer] = I18n.t('electronic.errors.customer_doc_big_sales', price_limit: PRICE_LIMIT)
         return false
@@ -170,9 +171,9 @@ module Afip
     end
 
     def company_iva_condition
-      if @invoice.company.ri?
+      if @company[:type_iva] == "ri"
         :responsable_inscripto
-      elsif @invoice.company.mt?
+      elsif if @company[:type_iva] == "mt"
         :responsable_monotributo
       else
         :exento
@@ -188,4 +189,5 @@ module Afip
       raise Afip::Exceptions::BravoAfipError, msj
     end
   end
+end
 end

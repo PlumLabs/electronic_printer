@@ -1,34 +1,36 @@
 require_relative 'exceptions'
 require_relative 'ivas'
 require_relative 'electronic_env'
+require_relative 'update_fiscal_data'
+
+require 'legal'
+require 'finance'
 
 module Afip
   class Invoicef
     attr_reader :errors
 
     PRICE_LIMIT = 1000.0
-    PRESITION = 2
 
-    def initialize(invoice, params)
+    def initialize(invoice, environment)
+      puts "inside Invoicef service new"
       @invoice = invoice
-      @company = params[:company]
-      @point_sale = params[:point_sale]
-      @items = params[:items]
       @invoice.document_type = Legal::document_type(@invoice.company_type_iva, @invoice.legal_person_type_iva)
       @errors   = {}
-      @eafip = Eafip::Company.new({ cuit: @company[:unformat_cuit],
-                                   pto_venta: @point_sale[:pos_number].to_s.rjust(4, '0'),
+      @eafip = Eafip::Company.new({ cuit: @invoice.company.unformat_cuit,
+                                   pto_venta: @invoice.point_of_sale.pos_number.to_s.rjust(4, '0'),
                                    documento: document_type,
-                                   pkey: params[:pkey].tempfile,
-                                   cert: params[:cert].tempfile,
-                                   concepto: @point_sale[:concept],
+                                   cert: "#{Rails.root}/lib/afip/cert-plum.crt",
+                                   pkey: "#{Rails.root}/lib/afip/pkey-plum",
+                                   concepto: @invoice.point_of_sale.concept,
                                    moneda: :peso,
                                    iva_cond: company_iva_condition,
-                                   environment:  Afip::ElectronicEnv.eafip_env
+                                   environment:  Afip::ElectronicEnv.eafip_env(environment)
                                  })
     end
 
     def authorize
+      puts "inside Invoicef service authorize"
       return false unless validate_data?
 
       begin
@@ -38,6 +40,7 @@ module Afip
           bill = Eafip::Bill.new(@eafip, {bill_type: bill_type, invoice_type: invoice_type})
           # Creamos un Invoice y pasamos total, tipo de invoice, condición de IVA
           # del receptor y porcentaje de IVA a aplicar. (0% o 21% para consumidor final)
+
           invoice = Eafip::Bill::Invoice.new(@eafip, {total: @invoice.price_final,
                                              document_type: document_type,
                                              iva_condition: iva_condition,
@@ -45,7 +48,6 @@ module Afip
                                              bill_type: bill.bill_type,
                                              concept: point_sale_concept,
                                              net_amount: net_amount})
-                                             # iva_sum: iva_sum,
           # Agregamos DNI o CUIT
           invoice.document_number = customer_document_number
 
@@ -54,7 +56,7 @@ module Afip
           # Enviamos la solicitud a la AFIP
           fail_billing!(bill) unless bill.authorize
           response = bill.response
-          Documents::UpdateFiscalData.new(@invoice,
+          Afip::UpdateFiscalData.new(@invoice,
             response.to_h.merge({document_type: @invoice.document_type})).electronic!
         end
 
@@ -105,9 +107,9 @@ module Afip
     end
 
     def invoice_type
-      if @invoice.type == "Invoice"
+      if @invoice.instance_of? Billing
         :invoice
-      elsif @invoice.type == "DebitNote"
+      elsif @invoice.instance_of? DebitNote
         :debit
       else
         :credit
@@ -116,7 +118,6 @@ module Afip
 
     def document_type
       doc_number = @invoice.legal_person_document_number.gsub('-','')
-      puts ap @invoice
       if !@invoice.a? && @invoice.price_final < PRICE_LIMIT
         'Doc. (Otro)'
       else
@@ -141,7 +142,7 @@ module Afip
     end
 
     def map_ivas_amount
-      @_map_ivas_amount ||= Afip::Ivas.ivas_document(@invoice, @items)
+      @_map_ivas_amount ||= Afip::Ivas.ivas_document(@invoice)
     end
 
     def net_amount
@@ -155,7 +156,7 @@ module Afip
     end
 
     def point_sale_concept
-      I18n.t("electronic.point_sale.concept.#{@point_sale.concept}")
+      I18n.t("electronic.point_sale.concept.#{@invoice.point_of_sale.concept}")
     end
 
     def validate_data?
@@ -171,9 +172,9 @@ module Afip
     end
 
     def company_iva_condition
-      if @company[:type_iva] == "ri"
+      if @invoice.company.ri?
         :responsable_inscripto
-      elsif if @company[:type_iva] == "mt"
+      elsif @invoice.company.mt?
         :responsable_monotributo
       else
         :exento
@@ -189,5 +190,4 @@ module Afip
       raise Afip::Exceptions::BravoAfipError, msj
     end
   end
-end
 end

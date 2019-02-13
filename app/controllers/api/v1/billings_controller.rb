@@ -1,42 +1,40 @@
 class Api::V1::BillingsController < ApplicationController
+
   # facturar ( ok si recibio todo y pudo facturar, error si falta algo o error de facturacion)
   def bill
     Billing.transaction do
       begin
-        @document = Billing.create billing_params
+        @document = initialize_document
         errors = []
-        if params[:pkey].blank? || params[:cert].blank?
-          render status: 404, json: { message: I18n.t('electronic.errors.files_not_found') }
-          raise ActiveRecord::Rollback, I18n.t('electronic.errors.files_not_found')
-        else
-          fe = Fiscals::Printers::Electronic.new(@document, params)
-          unless fe.call
-            fe.errors.each do |error|
-              errors << error
-            end
-            render status: 404, json: { message: errors } and return
+        puts "inside billing controller before new service"
+        fe = Fiscals::Printers::Electronic.new(@document, @enviroment)
+        puts "inside billing controller before call service"
+        unless fe.call
+          fe.errors.each do |error|
+            errors << error
           end
-          render status: 200, json: { status: 200 } and return
+          render status: 404, json: { message: errors } and return
         end
+
+        render json: @document.attributes.except("id") and return
+
       rescue ActiveRecord::StatementInvalid
+        render json: "StatementInvalid"
         # ...which we ignore.
       end
     end
-
-
-
   end
 
   # consultar estado de factura (datos electronicos de la factura)
   def state
-    if params[:invoice].present? && params[:invoice][:slug].present?
-      billing = Billing.find_by(slug: params[:invoice][:slug])
+    if params[:invoice].present? && params[:invoice][:id].present?
+      billing = Billing.find(params[:invoice][:id])
       if billing.present?
         fe_respond = {
-          fe_cae: document.fe_cae,
-          fe_result: document.fe_result,
-          fe_type: document.fe_type,
-          fe_expired: document.fe_expired,
+          fe_cae: billing.fe_cae,
+          fe_result: billing.fe_result,
+          fe_type: billing.fe_type,
+          fe_expired: billing.fe_expired,
         }.to_json
         render status: 200, json: { billing: fe_respond }
       else
@@ -58,12 +56,47 @@ class Api::V1::BillingsController < ApplicationController
 
   private
 
+  def initialize_document
+    @enviroment = params[:enviroment]
+    point_sale = PointSale.create point_sale_params
+    company    = Company.create company_params
+    document   = Billing.create billing_params
+    document.point_of_sale = point_sale
+    document.company       = company
+    create_items(document)
+    document
+  end
+
+  def create_items(document)
+    items = JSON.parse(params[:items])
+    items.each do |item_param|
+      document.items.build item_param.except("id", "document_id", "quantity_in_box",
+        "update_stock", "update_price", "exento_neto_gravado", "taxes", "retention",
+        "perception", "other")
+    end
+    document.save
+  end
+
   def billing_params
-    params.require(:invoice).permit :customer_id, :document_type, :point_sale, :number,
-      :emission_at, :price_neto, :price_final, :status, :creator_id, :company_id, :branch_id,
-      :legal_person_name, :legal_person_document_number, :legal_person_type_iva,
-      :legal_person_address, :surchage_percentage, :surchage_description, :company_type_iva,
-      :company_gross_income, :legal_person_location, :balance, :payment_way, :slug, :price_iva,
-      :point_sale_id, :has_movements, :document_id, :due_at, :remito_id
+    JSON.parse(params.require(:invoice)).slice("customer_id", "document_type", "point_sale", "number",
+      "emission_at", "price_neto", "price_final", "status", "creator_id", "company_id", "branch_id",
+      "legal_person_name", "legal_person_document_number", "legal_person_type_iva",
+      "legal_person_address", "surchage_percentage", "surchage_description", "company_type_iva",
+      "company_gross_income", "legal_person_location", "balance", "payment_way", "slug", "price_iva",
+      "point_sale_id", "has_movements", "document_id", "due_at", "remito_id")
+  end
+
+  def point_sale_params
+    JSON.parse(params.require(:point_sale)).slice("company_id", "pos_number", "concept", "fiscal_type")
+  end
+
+  def company_params
+    JSON.parse(params.require(:company)).slice("cuit", "type_iva")
+  end
+
+  def items_params
+    params.require(:items).slice("discount", "unit_price", "quantity", "product_id",
+                         "subtotal", "description", "code", "iva", "margin", "normalize_price_cost",
+                         "quotation", "currency_id", "price_iva")
   end
 end

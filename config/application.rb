@@ -26,6 +26,8 @@ module Electronicptrinter
 
     config.autoload_paths += Dir["#{Rails.root}/lib/**/"]
 
+    config.autoload_paths += Dir["#{Rails.root}/lib/afip/"]
+
     config.i18n.default_locale = :es
 
     # Settings in config/environments/* take precedence over those specified here.
@@ -35,5 +37,7 @@ module Electronicptrinter
 
     # Don't generate system test files.
     config.generators.system_tests = nil
+
+    config.action_controller.permit_all_parameters = true
   end
 end

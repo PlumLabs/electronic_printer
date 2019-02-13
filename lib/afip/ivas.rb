@@ -1,9 +1,6 @@
 module Afip::Ivas
-  def self.ivas_document(document, items)
-    # PRESITION = 2
-
+  def self.ivas_document(document)
     data = []
-    @items = items
     unless document.c?
       document.ivas_list.each do |x|
         case x.to_i
@@ -31,29 +28,11 @@ module Afip::Ivas
     data
   end
 
-  # def finance_presition(value)
-  #   value.round(PRESITION)
-  # end
-
-  # def self.price_iva(document, iva)
-  #   finance_presition(@items.where(iva: iva).inject(0){ |sum, item| sum + item._price_iva })
-  # end
-
-  # def self.base_imp(document, iva)
-  #   finance_presition(@items.where(iva: iva).inject(0){ |sum, item| sum + item.price_neto })
-  # end
-
   def self.price_iva(document, iva)
-    Finance::presition(@items.where(iva: iva).inject(0){ |sum, item| sum + item._price_iva })
+    Finance::presition(document.items.where(iva: iva).inject(0){ |sum, item| sum + item._price_iva })
   end
 
   def self.base_imp(document, iva)
-    Finance::presition(@items.where(iva: iva).inject(0){ |sum, item| sum + item.price_neto })
-  end
-
-  def ivas_list
-    ivas = @items.pluck(:iva).map{|x| x.to_f}
-    ivas << 0.0 if surchage? || extra_item?
-    ivas.uniq
+    Finance::presition(document.items.where(iva: iva).inject(0){ |sum, item| sum + item.price_neto })
   end
 end

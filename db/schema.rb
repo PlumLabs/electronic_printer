@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 2018_11_09_140452) do
+ActiveRecord::Schema.define(version: 2019_02_08_131054) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
@@ -61,6 +61,41 @@ ActiveRecord::Schema.define(version: 2018_11_09_140452) do
     t.integer "point_sale_id"
     t.boolean "has_movements"
     t.datetime "due_at"
+  end
+
+  create_table "companies", force: :cascade do |t|
+    t.integer "type_iva"
+    t.string "cuit"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "items", force: :cascade do |t|
+    t.string "code"
+    t.string "description"
+    t.integer "quantity"
+    t.integer "currency_id"
+    t.decimal "unit_price", precision: 11, scale: 2
+    t.decimal "discount", precision: 11, scale: 2
+    t.decimal "iva", precision: 11, scale: 2
+    t.decimal "subtotal", precision: 11, scale: 2
+    t.decimal "margin", precision: 11, scale: 2
+    t.decimal "price_iva", precision: 11, scale: 2
+    t.decimal "normalize_price_cost", precision: 11, scale: 3
+    t.decimal "quotation", precision: 11, scale: 3
+    t.integer "product_id"
+    t.integer "billing_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "point_sales", force: :cascade do |t|
+    t.integer "company_id"
+    t.integer "pos_number", default: 0
+    t.integer "concept", default: 0, null: false
+    t.integer "fiscal_type", default: 1, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
   end
 
 end

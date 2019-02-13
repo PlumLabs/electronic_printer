@@ -4,16 +4,16 @@ module Afip
       (ENV['EAFIP_ENV'] || :test).to_sym
     end
 
-    def self.eafip_env
-      self.production? ? :production : :test
+    def self.eafip_env(environment)
+      production?(environment) ? :production : :test
     end
 
-    def self.test?
-      self.environment == :test
+    def self.test?(environment)
+      environment == :test
     end
 
-    def self.production?
-      self.environment == :production
+    def self.production?(environment)
+      environment == :production
     end
 
     def self.name

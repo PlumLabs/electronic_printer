@@ -2,9 +2,9 @@ class Fiscals::Printers::Electronic
   require 'invoicef'
   attr_accessor :document, :errors
 
-  def initialize(document, params)
+  def initialize(document, enviroment)
     @document = document
-    @params = params
+    @enviroment = enviroment
     @errors = []
   end
 
@@ -14,12 +14,8 @@ class Fiscals::Printers::Electronic
 
   private
 
-  def valid?
-    @params[:company].blank? || @params[:point_sale].blank? || @params[:items].blank?
-  end
-
   def electronic_bill
-    bill = Afip::Invoicef.new(@document, @params)
+    bill = Afip::Invoicef.new(@document, @enviroment)
     if bill.authorize
       true
     else

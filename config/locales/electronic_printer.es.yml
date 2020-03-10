@@ -1,0 +1,18 @@
+es:
+  electronic:
+    point_sale:
+      concept:
+        product: Productos
+        service: Servicios
+        product_and_service: Productos y Servicios
+    errors:
+      files_not_found: No se encontraron los archivos para la facturación electronica
+      document_not_found: No se encontró ningún documento
+      already_invoiced: "Ya se había generado la Factura Electronica para este Documento"
+      customer_doc_big_sales: Para ventas mayores a $%{price_limit} debe especificar el número de documento del cliente
+      exent_not_support: "Categoría Exenta no soportada"
+      cuit_not_present: "El CUIT no puede estan en blanco"
+      invoice_blank: Factura no puede estar en blanco
+      company_blank: Compañia no puede estar en blanco
+      point_sale_blank: Punto de Venta no puede estar en blanco
+      item_blank: Items no puede estar en blanco

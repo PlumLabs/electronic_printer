@@ -1,0 +1,9 @@
+{
+<<<<<<< HEAD
+  "name": "electronic_ptrinter",
+=======
+  "name": "electronicptrinter",
+>>>>>>> start with api
+  "private": true,
+  "dependencies": {}
+}
